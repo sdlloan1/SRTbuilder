@@ -1,0 +1,24 @@
+name: {{app.displayName}}
+options:
+  bundleIdPrefix: {{app.iosBundleId}}
+  deploymentTarget:
+    iOS: "{{app.minIos}}"
+targets:
+  SRTApp:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: {{app.displayName}}
+        CFBundleShortVersionString: "{{app.version}}"
+        CFBundleVersion: "{{app.buildNumber}}"
+        UILaunchStoryboardName: LaunchScreen
+        NSCameraUsageDescription: "{{app.displayName}} uses the camera."
+        NSPhotoLibraryUsageDescription: "{{app.displayName}} saves and uploads photos."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: {{app.iosBundleId}}
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1,2"

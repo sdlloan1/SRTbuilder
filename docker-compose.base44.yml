@@ -1,0 +1,124 @@
+# Base44 sandbox environment for SRT Builder.
+#
+# Runs the pnpm workspace straight from the cloned source (bind mount) with the
+# projects' own dev servers, so edits are picked up without rebuilding images.
+# `setup` installs workspace dependencies and builds the two libraries the apps
+# import (@srt/config, @srt/bridge); api and studio only start their watchers.
+#
+#   docker compose -f docker-compose.base44.yml up -d --build
+#
+# Studio (web entry)  -> http://localhost:3000
+# API                 -> http://localhost:4000  (OpenAPI UI at /docs)
+
+name: srt-builder
+
+x-node: &node
+  image: node:22-bookworm
+  working_dir: /app
+  restart: on-failure
+  volumes:
+    - ./:/app
+    - pnpm-store:/root/.local/share/pnpm
+    - corepack-cache:/root/.cache/node/corepack
+
+services:
+  setup:
+    <<: *node
+    restart: "no"
+    command:
+      - sh
+      - -ec
+      - |
+        corepack enable
+        pnpm install --no-frozen-lockfile
+        pnpm --filter @srt/config build
+        pnpm --filter @srt/bridge build
+    labels:
+      base44.project: SRT Builder
+      base44.kind: worker
+
+  api:
+    <<: *node
+    command:
+      - sh
+      - -ec
+      - corepack enable && exec pnpm --filter @srt/api dev
+    environment:
+      - NODE_ENV=development
+      - API_PORT=4000
+      - STUDIO_ORIGIN=http://localhost:3000
+      - DATABASE_URL=file:/app/.data/srt.sqlite
+      - ARTIFACT_DIR=/app/.data/artifacts
+      - MAX_CONCURRENT_BUILDS=2
+      - BASE44_PREVIEW_MODE
+      - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+    volumes:
+      - ./:/app
+      - pnpm-store:/root/.local/share/pnpm
+      - corepack-cache:/root/.cache/node/corepack
+      - srt-data:/app/.data
+    ports:
+      - "4000:4000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+    labels:
+      base44.project: SRT Builder API
+      base44.kind: api
+      base44.port: 4000
+      base44.docs: /docs
+
+  studio:
+    <<: *node
+    command:
+      - sh
+      - -ec
+      - corepack enable && exec pnpm --filter @srt/studio dev
+    environment:
+      - NODE_ENV=development
+      # Browser calls stay same-origin; Next proxies /api/* to the api service.
+      - API_INTERNAL_URL=http://api:4000
+      - NEXT_TELEMETRY_DISABLED=1
+      - WATCHPACK_POLLING=true
+      - BASE44_PREVIEW_MODE
+      - BASE44_PUBLIC_HOST_SUFFIX
+      - BASE44_SANDBOX_HOST_DOMAIN
+      - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+    ports:
+      - "3000:3000"
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    labels:
+      base44.project: SRT Builder Studio
+      base44.kind: web
+      base44.port: 3000
+
+volumes:
+  pnpm-store:
+  corepack-cache:
+  srt-data:
