@@ -1,0 +1,5 @@
+# The runnable compose setup lives in docker-compose.base44.yml (dev servers,
+# bind-mounted source). This file simply includes it so `docker compose up -d`
+# from the repository root brings up the same stack.
+include:
+  - docker-compose.base44.yml

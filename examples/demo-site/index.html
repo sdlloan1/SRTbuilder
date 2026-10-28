@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>SRT Demo</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; font: 16px/1.5 system-ui; background: #0b1020; color: #e6e9f2; padding: 24px; }
+    button { display: block; width: 100%; margin: 8px 0; padding: 14px; border: 0; border-radius: 10px;
+             background: #2563eb; color: #fff; font-size: 15px; font-weight: 600; }
+    pre { background: #131a30; padding: 12px; border-radius: 10px; font-size: 12px; overflow: auto; min-height: 60px; }
+  </style>
+</head>
+<body>
+  <h1>SRT Demo</h1>
+  <p id="badge">Running in a browser.</p>
+
+  <button id="b1">Haptic impact</button>
+  <button id="b2">Purple status bar</button>
+  <button id="b3">Copy text</button>
+  <button id="b4">Share page</button>
+  <button id="b5">Dump device info</button>
+
+  <pre id="out">—</pre>
+
+  <script>
+    function boot() {
+      if (!window.srt) return setTimeout(boot, 50);
+
+      if (srt.isNative()) {
+        document.getElementById('badge').textContent = 'Running natively on ' + srt.platform() + '.';
+        srt.statusbar.set({ color: '#0b1020', style: 'light' });
+      }
+
+      document.getElementById('b1').onclick = () => srt.haptics.impact({ style: 'heavy' });
+      document.getElementById('b2').onclick = () => srt.statusbar.set({ color: '#7c3aed', style: 'light' });
+      document.getElementById('b3').onclick = () => srt.clipboard.write('copied from the app');
+      document.getElementById('b4').onclick = () => srt.share.page({ url: location.href, title: document.title });
+      document.getElementById('b5').onclick = dump;
+
+      dump();
+    }
+
+    async function dump() {
+      const info = await srt.device.getInfo();
+      document.getElementById('out').textContent = JSON.stringify(info, null, 2);
+    }
+
+    window.srt_library_ready = boot;
+    boot();
+  </script>
+</body>
+</html>
