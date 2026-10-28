@@ -47,9 +47,24 @@ docker compose -f docker-compose.base44.yml up -d --build
 - `@fastify/swagger-ui` must stay on v5 for Fastify 5; v4 throws
   `FST_ERR_PLUGIN_VERSION_MISMATCH` on boot.
 - The studio talks to the API same-origin: browser `fetch` uses relative paths
-  and `next.config.mjs` rewrites `/api/*` (and `/docs`) to `API_INTERNAL_URL`.
-  Server components need that absolute internal URL, so keep both paths in mind
-  when touching `lib/api.ts`.
+  and `next.config.mjs` rewrites `/api/*`, `/uploads/*` and `/docs` to
+  `API_INTERNAL_URL`. Server components need that absolute internal URL, so keep
+  both paths in mind when touching `lib/api.ts`.
+- Uploaded logos live under `UPLOAD_DIR` (default `./.data/uploads`, compose uses
+  `/app/.data/uploads`) as `logo.<ext>` per app id, and are exposed at
+  `/uploads/<appId>/logo.<ext>`. `branding.iconPath` stores that public path; the
+  generator resolves it back to the file when it writes the launcher icon, and
+  falls back to a flat PNG in the brand colour when none is uploaded (the Android
+  manifest always references `@mipmap/ic_launcher`, and Xcode expects an
+  `AppIcon` asset catalog).
+- Finished builds are written to `ARTIFACT_DIR/downloads` and stay there so
+  `GET /api/builds/:id/download` keeps working; only the throwaway work
+  directory is removed. In the sandbox image `gradle` is absent, so an Android
+  build packages the generated project as a `.zip` — a real `.apk` is produced
+  only when Gradle and the Android SDK are on the API's `PATH`.
+- `GET /api/preview/check?url=` fetches the target site server-side and reports
+  `X-Frame-Options`/`frame-ancestors`, so the simulator can explain a blank
+  frame instead of showing an empty phone.
 
 ## Verifying
 
@@ -57,8 +72,11 @@ docker compose -f docker-compose.base44.yml up -d --build
   (also proxied at `localhost:3000/docs`).
 - Studio: `localhost:3000` (landing), `/apps` (list), `/new` (create),
   `/apps/<id>` (simulator + branding + build).
-- A build should end with status `succeeded` and `generated N files`; the
-  work directory is deleted afterwards unless `KEEP_WORKDIR=1`.
+- A build should end with status `succeeded` and `packaged N files` (or
+  `built APK (debug)` when Gradle is available); the work directory is deleted
+  afterwards unless `KEEP_WORKDIR=1`, but the downloadable artefact is kept.
+- Logo round trip: `POST /api/apps/:id/logo` with `{"dataUrl":"data:image/png;base64,…"}`,
+  then the image should answer 200 at the returned `branding.iconPath`.
 
 ## Sandbox-only configuration
 

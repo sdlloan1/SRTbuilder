@@ -6,6 +6,7 @@ const EnvSchema = z.object({
   STUDIO_ORIGIN: z.string().default('http://localhost:3000'),
   DATABASE_URL: z.string().default('file:./.data/srt.sqlite'),
   ARTIFACT_DIR: z.string().default('./.data/artifacts'),
+  UPLOAD_DIR: z.string().default('./.data/uploads'),
   MAX_CONCURRENT_BUILDS: z.coerce.number().default(2),
 });
 

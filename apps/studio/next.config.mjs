@@ -22,6 +22,7 @@ export default {
   async rewrites() {
     return [
       { source: '/api/:path*', destination: `${API_INTERNAL_URL}/api/:path*` },
+      { source: '/uploads/:path*', destination: `${API_INTERNAL_URL}/uploads/:path*` },
       { source: '/docs', destination: `${API_INTERNAL_URL}/docs` },
       { source: '/docs/:path*', destination: `${API_INTERNAL_URL}/docs/:path*` },
     ];
