@@ -49,6 +49,7 @@ services:
       - STUDIO_ORIGIN=http://localhost:3000
       - DATABASE_URL=file:/app/.data/srt.sqlite
       - ARTIFACT_DIR=/app/.data/artifacts
+      - UPLOAD_DIR=/app/.data/uploads
       - MAX_CONCURRENT_BUILDS=2
       - BASE44_PREVIEW_MODE
       - COREPACK_ENABLE_DOWNLOAD_PROMPT=0

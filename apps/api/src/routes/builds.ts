@@ -1,6 +1,16 @@
 import type { FastifyInstance } from 'fastify';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { basename, extname } from 'node:path';
 import { buildsRepo, appsRepo } from '../services/db.js';
 import { enqueue } from '../services/build-queue.js';
+
+/** Builds expose only the downloadable file name, never the server path. */
+function publicBuild(build: any) {
+  if (!build) return null;
+  const { artifact, ...rest } = build;
+  return { ...rest, artifactName: artifact ? basename(artifact) : null };
+}
 
 export async function buildRoutes(app: FastifyInstance) {
   app.post('/api/apps/:id/build', async (req: any, reply) => {
@@ -21,8 +31,26 @@ export async function buildRoutes(app: FastifyInstance) {
 
   app.get('/api/builds/:id', async (req: any, reply) => {
     const build = buildsRepo.get(req.params.id);
-    return build ?? reply.code(404).send({ error: 'not found' });
+    return build ? publicBuild(build) : reply.code(404).send({ error: 'not found' });
   });
 
-  app.get('/api/apps/:id/builds', async (req: any) => buildsRepo.listForApp(req.params.id));
+  app.get('/api/apps/:id/builds', async (req: any) =>
+    buildsRepo.listForApp(req.params.id).map(publicBuild),
+  );
+
+  app.get('/api/builds/:id/download', async (req: any, reply) => {
+    const build = buildsRepo.get(req.params.id);
+    if (!build?.artifact) return reply.code(404).send({ error: 'no artefact for this build' });
+
+    const info = await stat(build.artifact).catch(() => null);
+    if (!info?.isFile()) return reply.code(404).send({ error: 'artefact no longer available' });
+
+    const fileName = basename(build.artifact);
+    const extension = extname(fileName).toLowerCase();
+    reply.header('content-disposition', `attachment; filename="${fileName}"`);
+    reply.type(
+      extension === '.apk' ? 'application/vnd.android.package-archive' : 'application/zip',
+    );
+    return reply.send(createReadStream(build.artifact));
+  });
 }

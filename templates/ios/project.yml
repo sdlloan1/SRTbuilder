@@ -20,5 +20,6 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: {{app.iosBundleId}}
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1,2"

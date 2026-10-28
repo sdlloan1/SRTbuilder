@@ -30,3 +30,15 @@ export const startBuild = (id: string, platform: 'ios' | 'android' | 'all' = 'al
   });
 
 export const getBuild = (id: string) => req<any>('/api/builds/' + id);
+
+export const listBuilds = (id: string) => req<any[]>('/api/apps/' + id + '/builds');
+
+export const uploadLogo = (id: string, dataUrl: string) =>
+  req<any>('/api/apps/' + id + '/logo', { method: 'POST', body: JSON.stringify({ dataUrl }) });
+
+export const removeLogo = (id: string) => req<any>('/api/apps/' + id + '/logo', { method: 'DELETE' });
+
+export const checkPreview = (url: string) =>
+  req<{ reachable: boolean; embeddable: boolean | null; reason: string }>(
+    '/api/preview/check?url=' + encodeURIComponent(url),
+  );

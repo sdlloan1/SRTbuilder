@@ -6,14 +6,14 @@ import { useParams } from 'next/navigation';
 import { SimulatorFrame } from '@/components/SimulatorFrame';
 import { BridgeConsole } from '@/components/BridgeConsole';
 import { BrandingPanel } from '@/components/BrandingPanel';
-import { getApp, startBuild } from '@/lib/api';
+import { BuildsPanel } from '@/components/BuildsPanel';
+import { getApp } from '@/lib/api';
 
 export default function AppDetail() {
   const { id } = useParams<{ id: string }>();
   const [app, setApp] = useState<any>(null);
   const [device, setDevice] = useState<'iphone' | 'android'>('iphone');
   const [lines, setLines] = useState<string[]>([]);
-  const [buildMsg, setBuildMsg] = useState('');
 
   useEffect(() => {
     getApp(id).then(setApp).catch(() => setApp(null));
@@ -22,16 +22,6 @@ export default function AppDetail() {
   const onCommand = useCallback((line: string) => {
     setLines((prev) => [...prev.slice(-200), line]);
   }, []);
-
-  async function build() {
-    setBuildMsg('queued…');
-    try {
-      const { buildIds } = await startBuild(id, 'all');
-      setBuildMsg('queued: ' + buildIds.length + ' builds');
-    } catch (err) {
-      setBuildMsg(err instanceof Error ? err.message : 'failed');
-    }
-  }
 
   if (!app) return <p style={{ padding: 40 }}>Loading…</p>;
 
@@ -45,17 +35,20 @@ export default function AppDetail() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <button onClick={() => setDevice('iphone')}>iPhone</button>
           <button onClick={() => setDevice('android')}>Android</button>
-          <button onClick={build} style={{ background: '#3b82f6', color: '#fff', border: 0 }}>
-            Build all
-          </button>
-          {buildMsg && <span style={{ color: '#8b95b5', fontSize: 12, alignSelf: 'center' }}>{buildMsg}</span>}
         </div>
 
-        <SimulatorFrame url={app.startUrl} device={device} onCommand={onCommand} />
+        <SimulatorFrame
+          url={app.startUrl}
+          device={device}
+          onCommand={onCommand}
+          appName={app.name}
+          iconPath={app.config.branding.iconPath}
+        />
       </div>
 
       <aside>
         <BrandingPanel app={app} onSaved={setApp} />
+        <BuildsPanel appId={app.id} />
         <h3 style={{ fontSize: 13, color: '#8b95b5', marginTop: 24 }}>Bridge console</h3>
         <BridgeConsole lines={lines} />
       </aside>

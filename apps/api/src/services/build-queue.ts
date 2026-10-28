@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm, writeFile, readFile, copyFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import JSZip from 'jszip';
 import { env } from '../env.js';
 import { buildsRepo, appsRepo } from './db.js';
 import { generateProject } from './generator.js';
@@ -9,6 +10,9 @@ type Task = { buildId: string; appId: string; platform: 'ios' | 'android' };
 
 const queue: Task[] = [];
 let running = 0;
+
+/** Finished artefacts live outside the throwaway work directory so they stay downloadable. */
+const DOWNLOAD_DIR = join(env.ARTIFACT_DIR, 'downloads');
 
 export function enqueue(task: Task) {
   queue.push(task);
@@ -42,14 +46,29 @@ async function run(task: Task) {
       log: 'generated ' + files.length + ' files',
     });
 
+    const name = artifactBaseName(app.config.app.displayName, platform, buildId);
+
     if (platform === 'android' && (await has('gradle'))) {
       buildsRepo.setStatus(buildId, 'compiling');
       await exec('gradle', ['assembleDebug'], projectDir, (line) =>
         buildsRepo.setStatus(buildId, 'compiling', { log: line }),
       );
+
+      const apk = join(projectDir, 'app/build/outputs/apk/debug/app-debug.apk');
+      const target = join(DOWNLOAD_DIR, name + '.apk');
+      await mkdir(DOWNLOAD_DIR, { recursive: true });
+      await copyFile(apk, target);
+      buildsRepo.setStatus(buildId, 'succeeded', { artifact: target, log: 'built APK (debug)' });
+      return;
     }
 
-    buildsRepo.setStatus(buildId, 'succeeded', { artifact: projectDir });
+    const target = join(DOWNLOAD_DIR, name + '.zip');
+    await mkdir(DOWNLOAD_DIR, { recursive: true });
+    await writeFile(target, await zipProject(projectDir, files));
+    buildsRepo.setStatus(buildId, 'succeeded', {
+      artifact: target,
+      log: 'packaged ' + files.length + ' files',
+    });
   } catch (error) {
     buildsRepo.setStatus(buildId, 'failed', {
       log: error instanceof Error ? error.stack ?? error.message : String(error),
@@ -59,6 +78,19 @@ async function run(task: Task) {
       await rm(workDir, { recursive: true, force: true }).catch(() => {});
     }
   }
+}
+
+async function zipProject(projectDir: string, files: string[]): Promise<Buffer> {
+  const zip = new JSZip();
+  for (const file of files) {
+    zip.file(file, await readFile(join(projectDir, file)));
+  }
+  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
+function artifactBaseName(displayName: string, platform: string, buildId: string): string {
+  const slug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'app';
+  return slug + '-' + platform + '-' + buildId.slice(0, 8);
 }
 
 function has(bin: string): Promise<boolean> {

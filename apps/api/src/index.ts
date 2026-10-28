@@ -5,6 +5,8 @@ import swaggerUi from '@fastify/swagger-ui';
 import { env } from './env.js';
 import { appRoutes } from './routes/apps.js';
 import { buildRoutes } from './routes/builds.js';
+import { previewRoutes } from './routes/preview.js';
+import { uploadRoutes } from './routes/uploads.js';
 
 const server = Fastify({ logger: { level: env.NODE_ENV === 'production' ? 'info' : 'debug' } });
 
@@ -22,6 +24,8 @@ await server.register(swaggerUi, { routePrefix: '/docs' });
 
 await server.register(appRoutes);
 await server.register(buildRoutes);
+await server.register(previewRoutes);
+await server.register(uploadRoutes);
 
 server.get('/health', async () => ({ ok: true, version: '0.1.0' }));
 
